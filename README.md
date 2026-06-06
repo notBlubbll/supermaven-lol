@@ -113,6 +113,57 @@ The `sm-agent` binary is cached at:
 - Windows: `.cache/supermaven-bin.exe`
 - Linux/macOS: `.cache/supermaven-bin`
 
+## Rate Limits & Performance
+
+### Benchmarked (5-minute sustained load)
+
+| Metric | Value |
+|---|---|
+| **TPS** | ~515 tokens/sec |
+| **Req/s** | ~14 req/s |
+| **Avg latency** | 69ms |
+| **P50 latency** | 61ms |
+| **P95 latency** | 182ms |
+| **P99 latency** | 219ms |
+| **Failed requests** | 0 / 4,226 |
+
+Tested with varied prompt lengths (short/medium/long) over 5 minutes, 0 failures.
+
+### Prompt Category Breakdown
+
+| Category | Requests | Tokens | Avg Latency | TPS |
+|---|---|---|---|---|
+| Short (2-28 chars) | 1,691 | 49,223 | 69ms | ~164 |
+| Medium (71-80 chars) | 1,690 | 89,474 | 68ms | ~298 |
+| Long (638+ chars) | 845 | 15,696 | 72ms | ~52 |
+
+### System Limits
+
+| Parameter | Limit |
+|---|---|
+| **`max_tokens`** | Accepts up to 8,192 but output is binary-controlled (~562 chars max per response) |
+| **Prompt length** | Short prompts work well; very long prompts (638+ chars) degrade output to ~1 char |
+| **Context window** | ~recently opened files (free tier), 1M tokens (Pro) |
+| **Data retention** | 7 days on uploaded code |
+| **Streaming** | Not supported by binary |
+| **Concurrent requests** | No documented limit; 14 req/s sustained without throttling |
+
+### Pro Tier ($10/mo)
+
+- 1M token context window (vs limited on free)
+- Adaptive coding style
+- Largest/most intelligent model
+- $5/month Supermaven Chat credits
+- No usage limits on completions
+
+### Chat (Pro Only)
+
+Supermaven Chat uses third-party models (GPT-4o, Claude 3.5 Sonnet, etc.) via OpenAI/Anthropic APIs. These are subject to the respective provider rate limits.
+
+### Note
+
+Supermaven was [sunsetted in Nov 2025](https://supermaven.com/blog/sunsetting-supermaven) after Cursor acquisition. Free autocomplete inference continues for existing users. Agent conversations (chat) are no longer supported.
+
 ## Troubleshooting
 
 ### "Binary not found"
