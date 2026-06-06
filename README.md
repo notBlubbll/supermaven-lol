@@ -2,7 +2,7 @@
 
 OpenAI-compatible proxy for Supermaven free tier code completions.
 
-### Demo:
+###Demo:
 <img width="936" height="722" alt="image" src="https://github.com/user-attachments/assets/95cba07b-07be-4360-98b4-202f8e0341c7" />
 
 
@@ -10,6 +10,7 @@ OpenAI-compatible proxy for Supermaven free tier code completions.
 
 - **Code completions** via Supermaven's free tier
 - **OpenAI-compatible API** - works with any client supporting `/v1/completions`
+- **Interactive demo** - Monaco Editor with ghost text completions at `/demo`
 - **Auto-download** - downloads binary from VSCode marketplace on first run
 - **Local only** - runs on `127.0.0.1` by default
 
@@ -17,14 +18,30 @@ OpenAI-compatible proxy for Supermaven free tier code completions.
 
 1. Double-click `start.cmd` or run `npm start`
 2. Server runs at `http://127.0.0.1:3000`
+3. Open `http://127.0.0.1:3000/demo` for the interactive demo
 
 ## Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/` | GET | Redirects to `/demo` |
+| `/demo` | GET | Interactive Monaco Editor demo |
 | `/health` | GET | Health check |
 | `/v1/models` | GET | List available models |
 | `/v1/completions` | POST | Code completions |
+| `/v1/chat/completions` | POST | Chat completions (OpenAI-compatible) |
+
+## Demo
+
+Open `http://127.0.0.1:3000/demo` for the interactive demo. Features:
+- Monaco Editor with inline ghost text suggestions (like VS Code)
+- Tab to accept, Escape to dismiss, Ctrl+Space to trigger manually
+- Language dropdown (JS, TS, Python, Java, C++, Go, Rust, and more)
+- Last 5 suggestions panel with timing info
+- Clear editor and clear log buttons
+
+<img width="936" height="722" alt="image" src="https://github.com/user-attachments/assets/95cba07b-07be-4360-98b4-202f8e0341c7" />
+
 
 ## Usage
 
