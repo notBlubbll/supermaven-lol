@@ -2,8 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { SupermavenClient } from './client.js';
 import { loadConfig, getConfig } from './config.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const config = loadConfig();
 const app = express();
@@ -12,6 +17,12 @@ const client = new SupermavenClient();
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(express.static(join(__dirname, '..'), { extensions: ['html'] }));
+
+// Redirect root to demo
+app.get('/', (req, res) => {
+  res.redirect('/demo');
+});
 
 // Health check
 app.get('/health', (req, res) => {

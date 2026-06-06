@@ -371,6 +371,7 @@ export class SupermavenClient {
       if (item.kind === 'text') text += item.text;
     }
     
+    console.log(`[Supermaven] Completion (${state.completion.length} items): "${text.substring(0, 100)}"`);
     return text;
   }
 
@@ -417,7 +418,9 @@ export class SupermavenClient {
     const lastMsg = messages[messages.length - 1];
     const prompt = lastMsg?.content || '';
     
+    console.log(`[Supermaven] chatCompletion prompt (${prompt.length} chars): "${prompt.substring(0, 80)}..."`);
     const completion = await this.getCompletion(prompt, prompt.length);
+    console.log(`[Supermaven] chatCompletion result: "${(completion || '').substring(0, 80)}"`);
     
     return {
       id: `chatcmpl-${Date.now()}`,

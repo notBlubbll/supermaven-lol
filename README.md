@@ -6,6 +6,7 @@ OpenAI-compatible proxy for Supermaven free tier code completions.
 
 - **Code completions** via Supermaven's free tier
 - **OpenAI-compatible API** - works with any client supporting `/v1/completions`
+- **Interactive demo** - Monaco Editor with ghost text completions at `/demo`
 - **Auto-setup** - copies binary from VSCode extension if not cached
 - **Local only** - runs on `127.0.0.1` by default
 
@@ -14,14 +15,27 @@ OpenAI-compatible proxy for Supermaven free tier code completions.
 1. Install Supermaven extension in VSCode
 2. Double-click `start.cmd` or run `npm start`
 3. Server runs at `http://127.0.0.1:3000`
+4. Open `http://127.0.0.1:3000/demo` for the interactive demo
 
 ## Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/` | GET | Redirects to `/demo` |
+| `/demo` | GET | Interactive Monaco Editor demo |
 | `/health` | GET | Health check |
 | `/v1/models` | GET | List available models |
 | `/v1/completions` | POST | Code completions |
+| `/v1/chat/completions` | POST | Chat completions (OpenAI-compatible) |
+
+## Demo
+
+The interactive demo at `/demo` features:
+- Monaco Editor with inline ghost text suggestions (like VS Code)
+- Tab to accept, Escape to dismiss, Ctrl+Space to trigger manually
+- Language dropdown (JS, TS, Python, Java, C++, Go, Rust, and more)
+- Last 5 suggestions panel with timing info
+- Clear editor and clear log buttons
 
 ## Usage
 
