@@ -2,6 +2,8 @@
 
 OpenAI-compatible proxy for Supermaven free tier code completions.
 
+<img width="936" height="722" alt="image" src="https://github.com/user-attachments/assets/6722b7ec-c4fc-4912-b404-ca6276b4a5a0" />
+
 ## Features
 
 - **Code completions** via Supermaven's free tier
