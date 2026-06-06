@@ -13,18 +13,13 @@ const client = new SupermavenClient();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Auth disabled - local proxy accepts all requests
-function requireAuth(req, res, next) {
-  next();
-}
-
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'supermaven-proxy' });
 });
 
 // Models endpoint
-app.get('/v1/models', requireAuth, (req, res) => {
+app.get('/v1/models', (req, res) => {
   res.json({
     object: 'list',
     data: [
@@ -69,7 +64,7 @@ app.get('/v1/models', requireAuth, (req, res) => {
 });
 
 // Chat completions endpoint
-app.post('/v1/chat/completions', requireAuth, async (req, res) => {
+app.post('/v1/chat/completions', async (req, res) => {
   try {
     const { messages, model, stream, temperature, max_tokens, n } = req.body;
     
@@ -84,10 +79,10 @@ app.post('/v1/chat/completions', requireAuth, async (req, res) => {
     }
     
     const options = {
-      model: model || config.proxy.defaultModel,
+      model: model || 'supermaven-free',
       stream: stream || false,
       temperature: temperature ?? 0.7,
-      max_tokens: max_tokens || config.proxy.maxTokens
+      max_tokens: max_tokens || 4096
     };
     
     if (stream) {
@@ -168,7 +163,7 @@ app.post('/v1/chat/completions', requireAuth, async (req, res) => {
 });
 
 // Completions endpoint (legacy)
-app.post('/v1/completions', requireAuth, async (req, res) => {
+app.post('/v1/completions', async (req, res) => {
   try {
     const { prompt, model, stream, temperature, max_tokens } = req.body;
     
@@ -184,10 +179,10 @@ app.post('/v1/completions', requireAuth, async (req, res) => {
     
     const messages = [{ role: 'user', content: prompt }];
     const options = {
-      model: model || config.proxy.defaultModel,
+      model: model || 'supermaven-free',
       stream: false,
       temperature: temperature ?? 0.7,
-      max_tokens: max_tokens || config.proxy.maxTokens
+      max_tokens: max_tokens || 4096
     };
     
     const result = await client.chatCompletion(messages, options);
@@ -221,7 +216,7 @@ app.post('/v1/completions', requireAuth, async (req, res) => {
 });
 
 // Embeddings endpoint (stub)
-app.post('/v1/embeddings', requireAuth, (req, res) => {
+app.post('/v1/embeddings', (req, res) => {
   res.status(501).json({
     error: {
       message: 'Embeddings not supported by Supermaven proxy',

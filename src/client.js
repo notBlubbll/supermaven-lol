@@ -2,12 +2,11 @@ import { getConfig } from './config.js';
 import https from 'https';
 import http from 'http';
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync, chmodSync, writeFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, chmodSync, writeFileSync, readFileSync, copyFileSync, readdirSync, unlinkSync, renameSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { platform, arch, homedir } from 'os';
 import { createWriteStream } from 'fs';
-import { pipeline } from 'stream/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,19 +19,22 @@ export class SupermavenClient {
     this.stateId = 0;
     this.stateMap = new Map();
     this.buffer = '';
-    this.versionFile = join(homedir(), '.supermaven', 'version.json');
-    this.binaryDir = join(homedir(), '.supermaven', 'binary', 'v20');
+    
+    // Store binary in .cache folder relative to project
+    this.cacheDir = join(__dirname, '..', '.cache');
+    this.versionFile = join(this.cacheDir, 'supermaven-version.json');
   }
 
   async initialize() {
     if (this.initialized) return;
     
-    console.log('[Supermaven] Checking for updates...');
+    // Ensure cache directory exists
+    mkdirSync(this.cacheDir, { recursive: true });
     
-    // Check and download latest binary
+    // Check for updates
     await this.updateBinary();
     
-    // Find the binary
+    // Find and use existing binary
     this.binaryPath = this.findBinary();
     
     if (!this.binaryPath) {
@@ -62,13 +64,9 @@ export class SupermavenClient {
     return 'x86_64';
   }
 
-  getBinaryDir() {
-    return join(this.binaryDir, `${this.getPlatform()}-${this.getArch()}`);
-  }
-
   getBinaryPath() {
     const ext = this.getPlatform() === 'windows' ? '.exe' : '';
-    return join(this.getBinaryDir(), `sm-agent${ext}`);
+    return join(this.cacheDir, `supermaven-bin${ext}`);
   }
 
   getVersionInfo() {
@@ -82,65 +80,91 @@ export class SupermavenClient {
 
   saveVersionInfo(info) {
     try {
-      mkdirSync(dirname(this.versionFile), { recursive: true });
       writeFileSync(this.versionFile, JSON.stringify(info, null, 2));
     } catch (e) {}
   }
 
   async updateBinary() {
-    const currentVersion = this.getVersionInfo();
+    console.log('[Supermaven] Checking for updates...');
+    const cachedPath = this.getBinaryPath();
     
+    // Check if we already have a binary
+    if (existsSync(cachedPath)) {
+      console.log('[Supermaven] Binary exists');
+      return;
+    }
+    
+    // Download from marketplace
+    console.log('[Supermaven] Downloading from marketplace...');
     try {
-      // Check latest version from API
-      const platform_ = this.getPlatform();
-      const arch_ = this.getArch();
+      const { execSync } = await import('child_process');
+      const vsixPath = join(this.cacheDir, 'supermaven.vsix');
+      const zipPath = join(this.cacheDir, 'supermaven.zip');
       
-      const url = `https://supermaven.com/api/download-path-v2?platform=${platform_}&arch=${arch_}&editor=vscode`;
+      // Download VSIX
+      execSync(`powershell -command "Invoke-WebRequest -Uri 'https://marketplace.visualstudio.com/_apis/public/gallery/publishers/supermaven/vsextensions/supermaven/1.1.12/vspackage' -OutFile '${vsixPath}'"`, { encoding: 'utf-8' });
       
-      const response = await this.makeRequest(url);
+      // Rename to .zip for extraction
+      if (existsSync(zipPath)) unlinkSync(zipPath);
+      renameSync(vsixPath, zipPath);
       
-      if (!response.ok) {
-        console.log('[Supermaven] Version check failed, using existing binary');
-        return;
+      // Extract
+      const tmpDir = join(this.cacheDir, 'tmp-extract');
+      mkdirSync(tmpDir, { recursive: true });
+      execSync(`powershell -command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tmpDir}' -Force"`, { encoding: 'utf-8' });
+      
+      // Find and copy sm-agent
+      const findAgent = (dir) => {
+        const entries = readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const fullPath = join(dir, entry.name);
+          if (entry.isDirectory()) {
+            const result = findAgent(fullPath);
+            if (result) return result;
+          } else if (entry.name.includes('sm-agent')) {
+            return fullPath;
+          }
+        }
+        return null;
+      };
+      
+      const agentPath = findAgent(tmpDir);
+      if (agentPath) {
+        mkdirSync(dirname(cachedPath), { recursive: true });
+        copyFileSync(agentPath, cachedPath);
+        console.log('[Supermaven] Binary downloaded and extracted');
       }
       
-      const data = JSON.parse(response.body);
-      
-      if (data.error) {
-        console.log('[Supermaven] API error:', data.error);
-        return;
-      }
-      
-      const latestVersion = data.version || 0;
-      const downloadUrl = data.downloadUrl;
-      const sha256Hash = data.sha256Hash;
-      
-      if (!downloadUrl) {
-        console.log('[Supermaven] No download URL available');
-        return;
-      }
-      
-      // Check if update needed
-      if (currentVersion.version >= latestVersion && currentVersion.sha256Hash === sha256Hash) {
-        console.log(`[Supermaven] Binary up to date (v${latestVersion})`);
-        return;
-      }
-      
-      console.log(`[Supermaven] Updating binary: v${currentVersion.version} -> v${latestVersion}`);
-      
-      // Download new binary
-      await this.downloadBinary(downloadUrl, sha256Hash, latestVersion);
+      // Cleanup
+      try { unlinkSync(zipPath); } catch (e) {}
+      try { execSync(`powershell -command "Remove-Item -Path '${tmpDir}' -Recurse -Force"`, { encoding: 'utf-8' }); } catch (e) {}
       
     } catch (e) {
-      console.log('[Supermaven] Update check failed:', e.message);
+      console.log('[Supermaven] Download failed:', e.message);
+      // Fallback to VSCode extension copy
+      const vscodeExtDir = join(homedir(), '.vscode', 'extensions');
+      if (existsSync(vscodeExtDir)) {
+        try {
+          const dirs = readdirSync(vscodeExtDir).filter(d => d.startsWith('supermaven.supermaven'));
+          for (const dir of dirs) {
+            const extPath = join(vscodeExtDir, dir);
+            const agentPath = join(extPath, 'bin', 'win32-x64', 'sm-agent.exe');
+            if (existsSync(agentPath)) {
+              mkdirSync(dirname(cachedPath), { recursive: true });
+              copyFileSync(agentPath, cachedPath);
+              console.log('[Supermaven] Binary copied from VSCode extension');
+              return;
+            }
+          }
+        } catch (e2) {}
+      }
+      console.log('[Supermaven] No binary found');
     }
   }
 
   async downloadBinary(url, expectedHash, version) {
     const binaryPath = this.getBinaryPath();
     const tempPath = binaryPath + '.tmp';
-    
-    console.log('[Supermaven] Downloading from:', url);
     
     try {
       mkdirSync(dirname(binaryPath), { recursive: true });
@@ -151,7 +175,6 @@ export class SupermavenClient {
         
         client.get(url, (res) => {
           if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-            // Follow redirect
             this.downloadBinary(res.headers.location, expectedHash, version)
               .then(resolve)
               .catch(reject);
@@ -171,9 +194,7 @@ export class SupermavenClient {
             resolve();
           });
           
-          fileStream.on('error', (err) => {
-            reject(err);
-          });
+          fileStream.on('error', reject);
         }).on('error', reject);
       });
       
@@ -184,41 +205,43 @@ export class SupermavenClient {
       
       // Replace old binary
       if (existsSync(binaryPath)) {
-        const fs = await import('fs');
-        fs.unlinkSync(binaryPath);
+        unlinkSync(binaryPath);
       }
       
-      const fs = await import('fs');
-      fs.renameSync(tempPath, binaryPath);
+      renameSync(tempPath, binaryPath);
       
       // Save version info
       this.saveVersionInfo({ version, sha256Hash: expectedHash });
       
-      console.log(`[Supermaven] Binary updated to v${version}`);
+      console.log(`[Supermaven] Binary downloaded (v${version})`);
       
     } catch (e) {
       console.log('[Supermaven] Download failed:', e.message);
       // Clean up temp file
       try {
-        const fs = await import('fs');
-        if (existsSync(tempPath)) fs.unlinkSync(tempPath);
+        if (existsSync(tempPath)) unlinkSync(tempPath);
       } catch (e) {}
     }
   }
 
   findBinary() {
+    console.log('[Supermaven] Looking for binary...');
+    
     // Check cached binary first
     const cachedPath = this.getBinaryPath();
     if (existsSync(cachedPath)) {
+      console.log('[Supermaven] Found cached binary');
       return cachedPath;
     }
     
-    // Search VSCode extensions
+    console.log('[Supermaven] No cached binary, searching VSCode extensions...');
+    
+    // Search VSCode extensions for bundled binary
     const vscodeExtDir = join(homedir(), '.vscode', 'extensions');
     if (existsSync(vscodeExtDir)) {
       try {
-        const { readdirSync, copyFileSync } = require('fs');
         const dirs = readdirSync(vscodeExtDir).filter(d => d.startsWith('supermaven.supermaven'));
+        console.log(`[Supermaven] Found ${dirs.length} Supermaven extension(s)`);
         for (const dir of dirs) {
           const extPath = join(vscodeExtDir, dir);
           const binDirs = ['bin/win32-x64', 'bin/linux-x64', 'bin/darwin-arm64', 'bin/darwin-x64'];
@@ -226,15 +249,22 @@ export class SupermavenClient {
             const ext = this.getPlatform() === 'windows' ? '.exe' : '';
             const agentPath = join(extPath, binDir, `sm-agent${ext}`);
             if (existsSync(agentPath)) {
+              // Copy to cache
               mkdirSync(dirname(cachedPath), { recursive: true });
               copyFileSync(agentPath, cachedPath);
+              console.log('[Supermaven] Copied binary from VSCode extension to cache');
               return cachedPath;
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.log('[Supermaven] Error searching extensions:', e.message);
+      }
+    } else {
+      console.log('[Supermaven] VSCode extensions directory not found');
     }
     
+    console.log('[Supermaven] No binary found');
     return null;
   }
 
@@ -254,9 +284,7 @@ export class SupermavenClient {
       this.processBuffer();
     });
     
-    this.binaryProcess.stderr.on('data', (data) => {
-      // Ignore stderr
-    });
+    this.binaryProcess.stderr.on('data', (data) => {});
     
     this.binaryProcess.on('exit', (code) => {
       console.log(`[Supermaven] Binary exited: ${code}`);
@@ -378,7 +406,6 @@ export class SupermavenClient {
       });
       
       req.on('error', reject);
-      
       if (options.body) req.write(options.body);
       req.end();
     });
