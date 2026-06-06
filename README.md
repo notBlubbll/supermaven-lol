@@ -141,12 +141,12 @@ Tested with varied prompt lengths (short/medium/long) over 5 minutes, 0 failures
 
 | Parameter | Limit |
 |---|---|
-| **`max_tokens`** | Accepts up to 8,192 but output is binary-controlled (~562 chars max per response) |
-| **Prompt length** | Short prompts work well; very long prompts (638+ chars) degrade output to ~1 char |
-| **Context window** | ~recently opened files (free tier), 1M tokens (Pro) |
+| **Max input (prompt)** | No HTTP limit — binary accepts any size. Returns "No completion available" at ~25k tokens input. Optimal: 100-500 tokens |
+| **Max output** | ~500-960 chars (~120-240 tokens) per response |
+| **`max_tokens` param** | Cosmetic — binary ignores it, output is internally controlled |
+| **Streaming** | Not supported (returns empty body) |
 | **Data retention** | 7 days on uploaded code |
-| **Streaming** | Not supported by binary |
-| **Concurrent requests** | No documented limit; 14 req/s sustained without throttling |
+| **Rate limit** | No documented limit; 14 req/s sustained without throttling |
 
 ### Pro Tier ($10/mo)
 
