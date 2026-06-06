@@ -2,42 +2,25 @@
 
 OpenAI-compatible proxy for Supermaven free tier code completions.
 
-<img width="936" height="722" alt="image" src="https://github.com/user-attachments/assets/6722b7ec-c4fc-4912-b404-ca6276b4a5a0" />
-
 ## Features
 
 - **Code completions** via Supermaven's free tier
 - **OpenAI-compatible API** - works with any client supporting `/v1/completions`
-- **Interactive demo** - Monaco Editor with ghost text completions at `/demo`
-- **Auto-setup** - copies binary from VSCode extension if not cached
+- **Auto-download** - downloads binary from VSCode marketplace on first run
 - **Local only** - runs on `127.0.0.1` by default
 
 ## Quick Start
 
-1. Install Supermaven extension in VSCode
-2. Double-click `start.cmd` or run `npm start`
-3. Server runs at `http://127.0.0.1:3000`
-4. Open `http://127.0.0.1:3000/demo` for the interactive demo
+1. Double-click `start.cmd` or run `npm start`
+2. Server runs at `http://127.0.0.1:3000`
 
 ## Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Redirects to `/demo` |
-| `/demo` | GET | Interactive Monaco Editor demo |
 | `/health` | GET | Health check |
 | `/v1/models` | GET | List available models |
 | `/v1/completions` | POST | Code completions |
-| `/v1/chat/completions` | POST | Chat completions (OpenAI-compatible) |
-
-## Demo
-
-The interactive demo at `/demo` features:
-- Monaco Editor with inline ghost text suggestions (like VS Code)
-- Tab to accept, Escape to dismiss, Ctrl+Space to trigger manually
-- Language dropdown (JS, TS, Python, Java, C++, Go, Rust, and more)
-- Last 5 suggestions panel with timing info
-- Clear editor and clear log buttons
 
 ## Usage
 
@@ -55,6 +38,7 @@ curl http://127.0.0.1:3000/v1/completions \
 from openai import OpenAI
 
 client = OpenAI(
+    api_key="any-key",
     base_url="http://127.0.0.1:3000/v1"
 )
 
@@ -72,6 +56,7 @@ print(response.choices[0].text)
 import OpenAI from 'openai';
 
 const client = new OpenAI({
+    apiKey: 'any-key',
     baseURL: 'http://127.0.0.1:3000/v1'
 });
 
@@ -99,11 +84,11 @@ Edit `.config/config.json`:
 ## How It Works
 
 1. Uses Supermaven's `sm-agent` binary for code completions
-2. Binary is either:
-   - Found in `.cache/` (previously downloaded)
-   - Copied from VSCode extension at `~/.vscode/extensions/supermaven.supermaven-*/`
-3. Binary communicates with Supermaven servers for free tier completions
-4. Server translates OpenAI API requests to binary protocol
+2. On first run, downloads VSIX from VSCode marketplace
+3. Extracts `sm-agent` binary from VSIX
+4. Caches binary in `.cache/supermaven-bin.exe`
+5. Binary communicates with Supermaven servers for free tier completions
+6. Server translates OpenAI API requests to binary protocol
 
 ## Binary Location
 
@@ -114,10 +99,10 @@ The `sm-agent` binary is cached at:
 ## Troubleshooting
 
 ### "Binary not found"
-Install the Supermaven extension in VSCode first. The proxy copies the binary from there.
+Delete `.cache/supermaven-bin.exe` and restart to re-download from marketplace.
 
 ### "Connection refused"
 Make sure no other process is using port 3000. The server auto-kills existing processes on startup.
 
 ### Completions not working
-Ensure the binary exists in `.cache/` and is not corrupted. Delete it and restart to re-copy from VSCode extension.
+Ensure the binary exists in `.cache/` and is not corrupted. Delete it and restart to re-download.
